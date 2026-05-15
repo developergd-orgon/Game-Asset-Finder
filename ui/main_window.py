@@ -98,6 +98,8 @@ class MainWindow(QMainWindow):
         self._list_panel.open_file.connect(self._open_in_app)
         self._list_panel.edit_tags.connect(self._edit_tags)
         self._list_panel.rename_move.connect(self._rename_move)
+        self._list_panel.remove_asset.connect(self._on_remove_asset)
+        self._list_panel.toggle_ignore.connect(self._on_toggle_ignore)
 
     def _build_menu(self):
         mb = self.menuBar()
@@ -112,6 +114,9 @@ class MainWindow(QMainWindow):
         asset_m.addAction("🔖  Edit tags…", self._edit_current_tags, "Ctrl+T")
         asset_m.addAction("✏️  Rename / Move…", self._rename_current, "F2")
         asset_m.addAction("📂  Show in file manager", self._reveal_current)
+        asset_m.addSeparator()
+        asset_m.addAction("🚫  Ignore", self._on_toggle_ignore, "Ctrl+I")
+        asset_m.addAction("🗑  Remove from library", self._on_remove_asset, "Ctrl+D")
 
         help_m = mb.addMenu("&Help")
         help_m.addAction("About", self._about)
@@ -211,6 +216,15 @@ class MainWindow(QMainWindow):
             "Scan folders, tag, preview and organise your game assets.<br>"
             "Built with Python + PySide6."
         )
+        
+    def _on_remove_asset(self, asset: Asset) -> None:
+        self._lib.remove(asset)
+        self._list_panel.refresh()
+
+    def _on_toggle_ignore(self, asset: Asset) -> None:
+        self._lib.toggle_ignore(asset)
+        self._list_panel.refresh()
+
 
 
 # ── Stylesheet ────────────────────────────────────────────────────────────────

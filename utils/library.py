@@ -109,14 +109,22 @@ class Library:
         self.save()
         return asset
 
+    def toggle_ignore(self, asset: Asset) -> None:
+        asset.ignored = not asset.ignored
+        self.update(asset)  # persiste automáticamente
+
     # ── Filtering ─────────────────────────────────────────────────────────────
     def filter(
         self,
         text: str = "",
         file_type: str = "All",
         tags: Optional[list[str]] = None,
+        show_ignored: bool = False,
     ) -> list[Asset]:
         results = list(self._assets.values())
+
+        if not show_ignored:
+            results = [a for a in results if not a.ignored]
 
         if file_type and file_type != "All":
             results = [a for a in results if a.file_type == file_type]
@@ -137,3 +145,4 @@ class Library:
             ]
 
         return results
+

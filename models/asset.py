@@ -68,6 +68,7 @@ class Asset:
         "Genre": [], "Mood": [], "Situation": [], "Mechanic": []
     })
     notes: str = ""
+    ignored: bool = False
 
     def __post_init__(self):
         self.path = Path(self.path)
@@ -105,6 +106,7 @@ class Asset:
             "file_type": self.file_type,
             "tags":      self.tags,
             "notes":     self.notes,
+            "ignored":   self.ignored,
         }
 
     @classmethod
@@ -114,4 +116,5 @@ class Asset:
         a.file_type = d.get("file_type", a.file_type)
         a.tags      = d.get("tags", {"Genre": [], "Mood": [], "Situation": [], "Mechanic": []})
         a.notes     = d.get("notes", "")
+        a.ignored   = d.get("ignored", False)
         return a

@@ -8,7 +8,7 @@ from PySide6.QtGui import QFont, QColor, QIcon
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QComboBox,
     QTreeWidget, QTreeWidgetItem, QPushButton, QLabel,
-    QSizePolicy, QToolButton, QMenu,
+    QSizePolicy, QToolButton, QMenu, QCheckBox, QMessageBox,
 )
 
 from models.asset import Asset, FILE_TYPES, ALL_TAG_CATEGORIES
@@ -27,6 +27,8 @@ class AssetListPanel(QWidget):
     open_file      = Signal(object)      # double-click → open in default app
     edit_tags      = Signal(object)
     rename_move    = Signal(object)
+    remove_asset   = Signal(object)
+    toggle_ignore  = Signal(object)
 
     def __init__(self, library: Library, parent=None):
         super().__init__(parent)
@@ -54,6 +56,12 @@ class AssetListPanel(QWidget):
             self._type_combo.addItem(f"{TYPE_ICONS.get(t,'')}  {t}")
         self._type_combo.currentIndexChanged.connect(self._do_filter)
         top.addWidget(self._type_combo)
+
+        self._show_ignored_cb = QCheckBox("Show ignored")
+        self._show_ignored_cb.setChecked(False)
+        self._show_ignored_cb.toggled.connect(self._do_filter)
+        top.addWidget(self._show_ignored_cb)
+
         root.addLayout(top)
 
         # ── Tag filter chips ──────────────────────────────────────────────────
@@ -113,14 +121,16 @@ class AssetListPanel(QWidget):
 
     # ── Filtering ─────────────────────────────────────────────────────────────
     def _do_filter(self):
-        text = self._search.text().strip()
-        idx  = self._type_combo.currentIndex()
+        text  = self._search.text().strip()
+        idx   = self._type_combo.currentIndex()
         ftype = "" if idx == 0 else list(FILE_TYPES.keys())[idx - 1]
+        show_ignored = self._show_ignored_cb.isChecked()
 
         assets = self._lib.filter(
             text=text,
             file_type=ftype,
             tags=self._active_tag_filters if self._active_tag_filters else None,
+            show_ignored=show_ignored,
         )
         self._populate(assets)
 
@@ -136,6 +146,10 @@ class AssetListPanel(QWidget):
             ])
             item.setData(0, Qt.ItemDataRole.UserRole, a)
             item.setToolTip(0, str(a.path))
+            # Visual hint for ignored assets when shown
+            if a.ignored:
+                for col in range(4):
+                    item.setForeground(col, QColor("#888888"))
             self._tree.addTopLevelItem(item)
         self._tree.setUpdatesEnabled(True)
         self._count_lbl.setText(f"{len(assets)} asset{'s' if len(assets)!=1 else ''}")
@@ -160,7 +174,6 @@ class AssetListPanel(QWidget):
         self._do_filter()
 
     def _rebuild_chips(self):
-        # clear old chips
         while self._chip_area.count():
             item = self._chip_area.takeAt(0)
             if item.widget():
@@ -195,9 +208,24 @@ class AssetListPanel(QWidget):
         menu.addAction("🔖  Edit tags…").triggered.connect(lambda: self.edit_tags.emit(asset))
         menu.addAction("✏️  Rename / Move…").triggered.connect(lambda: self.rename_move.emit(asset))
         menu.addSeparator()
+        ignore_label = "👁  Un-ignore" if asset.ignored else "🚫  Ignore"
+        menu.addAction(ignore_label).triggered.connect(lambda: self.toggle_ignore.emit(asset))
+        menu.addAction("🗑  Remove from library…").triggered.connect(
+            lambda: self._confirm_remove(asset))
+        menu.addSeparator()
         menu.addAction("📂  Show in file manager").triggered.connect(
             lambda: self._reveal(asset))
         menu.exec(self._tree.viewport().mapToGlobal(pos))
+
+    def _confirm_remove(self, asset: Asset):
+        reply = QMessageBox.question(
+            self,
+            "Remove asset",
+            f"Remove «{asset.name}» from the library?\nThe file will NOT be deleted.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self.remove_asset.emit(asset)
 
     @staticmethod
     def _reveal(asset: Asset):
